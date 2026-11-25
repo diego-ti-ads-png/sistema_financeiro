@@ -244,18 +244,6 @@ a { color: inherit; text-decoration: none; }
 .password-toggle { position: absolute; top: 50%; right: 5px; display: grid; width: 30px; height: 30px; transform: translateY(-50%); place-items: center; color: #8b9790; background: transparent; border: 0; }
 .forgot-link { justify-self: end; margin-top: -3px; font-size: 10px; }
 .auth-submit { width: 100%; min-height: 41px; margin-top: 2px; font-size: 11px; }
-.auth-divider { display: flex; align-items: center; gap: 10px; margin: 17px 0 12px; color: #a0aaa4; font-size: 9px; white-space: nowrap; }
-.auth-divider span, .phone-heading span { height: 1px; flex: 1; background: #edf0ee; }
-.oauth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.oauth-button { display: flex; height: 36px; align-items: center; justify-content: center; gap: 8px; color: #56645c; background: #fff; border: 1px solid #e7ece9; border-radius: 7px; font-size: 10px; font-weight: 600; }
-.oauth-button:hover { background: #f8faf9; border-color: #cfdcd3; }
-.oauth-button svg { width: 15px; height: 15px; }
-.oauth-wide { grid-column: 1 / -1; }
-.phone-auth { margin-top: 15px; }
-.phone-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; color: #a0aaa4; font-size: 9px; white-space: nowrap; }
-.phone-form { display: flex; gap: 7px; }
-.phone-form input { width: 100%; min-width: 0; height: 36px; padding: 0 10px; color: #48574e; border: 1px solid #e5eae7; border-radius: 7px; font-size: 10px; }
-.phone-form .secondary-button { min-height: 36px; white-space: nowrap; font-size: 9px; }
 .auth-switch { margin-top: 17px; color: #929d96; font-size: 10px; text-align: center; }
 .auth-switch .text-link { margin-left: 3px; font-size: 10px; }
 .auth-footnote { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 15px 0 0; color: #9ba69f; font-size: 9px; }
