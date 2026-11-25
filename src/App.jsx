@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
   BadgeDollarSign,
@@ -17,14 +18,15 @@ import {
   LoaderCircle,
   LogOut,
   Menu,
+  Pencil,
   Plus,
   Search,
-  Settings,
   ShieldCheck,
   Tags,
   Target,
   TrendingDown,
   TrendingUp,
+  Trash2,
   Wallet,
   X,
 } from "lucide-react";
@@ -75,6 +77,7 @@ export default function App() {
   const [dataError, setDataError] = useState("");
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState("");
+  const [editingRecord, setEditingRecord] = useState(null);
   const [mobileNav, setMobileNav] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -139,23 +142,50 @@ export default function App() {
     }
   }
 
-  async function saveRecord(table, payload, successMessage) {
-    const query = table === "budgets"
-      ? supabase.from(table).upsert(payload, { onConflict: "user_id,category_id,year,month" })
-      : supabase.from(table).insert(payload);
+  function openModal(type, record = null) {
+    setEditingRecord(record);
+    setModal(type);
+  }
+
+  function closeModal() {
+    setModal("");
+    setEditingRecord(null);
+  }
+
+  async function saveRecord(table, payload, successMessage, recordId) {
+    const query = recordId
+      ? supabase.from(table).update(payload).eq("id", recordId)
+      : table === "budgets"
+        ? supabase.from(table).upsert(payload, { onConflict: "user_id,category_id,year,month" })
+        : supabase.from(table).insert(payload);
     const { error } = await query;
     if (error) throw error;
     await refresh();
-    setModal("");
+    closeModal();
     setToast(successMessage);
   }
 
-  async function deleteTransaction(id) {
-    const { error } = await supabase.from("transactions").delete().eq("id", id);
-    if (error) setToast(formatError(error));
-    else {
-      setToast("Transação removida.");
-      refresh();
+  async function deleteRecord(table, id) {
+    const confirmations = {
+      accounts: "Excluir esta conta também excluirá todas as transações vinculadas a ela.",
+      categories: "Os orçamentos desta categoria serão excluídos e as transações ficarão sem categoria.",
+      transactions: "Esta transação será excluída permanentemente.",
+      budgets: "Este orçamento será excluído permanentemente.",
+    };
+    if (!window.confirm(`${confirmations[table]}\n\nDeseja continuar?`)) return;
+    try {
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) throw error;
+      await refresh();
+      const messages = {
+        accounts: "Conta excluída.",
+        categories: "Categoria excluída.",
+        transactions: "Transação excluída.",
+        budgets: "Orçamento excluído.",
+      };
+      setToast(messages[table]);
+    } catch (error) {
+      setToast(formatError(error));
     }
   }
 
@@ -260,19 +290,19 @@ export default function App() {
           )}
           {loadingData && <div className="loading-line"><LoaderCircle size={15} className="spin" /> Atualizando seus dados...</div>}
           {page === "overview" && (
-            <Dashboard data={data} onNavigate={setPage} onAdd={() => setModal("transaction")} onExport={() => exportTransactions()} />
+            <Dashboard data={data} onNavigate={setPage} onAdd={() => openModal("transaction")} onExport={() => exportTransactions()} />
           )}
           {page === "transactions" && (
-            <TransactionsPage data={data} onAdd={() => setModal("transaction")} onDelete={deleteTransaction} onExport={exportTransactions} />
+            <TransactionsPage data={data} onAdd={() => openModal("transaction")} onEdit={(record) => openModal("transaction", record)} onDelete={(id) => deleteRecord("transactions", id)} onExport={exportTransactions} />
           )}
           {page === "accounts" && (
-            <AccountsPage data={data} onAdd={() => setModal("account")} onNavigate={setPage} />
+            <AccountsPage data={data} onAdd={() => openModal("account")} onEdit={(record) => openModal("account", record)} onDelete={(id) => deleteRecord("accounts", id)} onNavigate={setPage} />
           )}
           {page === "budgets" && (
-            <BudgetsPage data={data} onAdd={() => setModal("budget")} />
+            <BudgetsPage data={data} onAdd={() => openModal("budget")} onEdit={(record) => openModal("budget", record)} onDelete={(id) => deleteRecord("budgets", id)} />
           )}
           {page === "categories" && (
-            <CategoriesPage data={data} onAdd={() => setModal("category")} />
+            <CategoriesPage data={data} onAdd={() => openModal("category")} onEdit={(record) => openModal("category", record)} onDelete={(id) => deleteRecord("categories", id)} />
           )}
           {page === "help" && <HelpPage />}
         </div>
@@ -281,9 +311,10 @@ export default function App() {
       {modal && (
         <FinanceModal
           type={modal}
+          record={editingRecord}
           data={data}
           userId={session.user.id}
-          onClose={() => setModal("")}
+          onClose={closeModal}
           onSave={saveRecord}
         />
       )}
@@ -648,10 +679,10 @@ function accountType(type) {
   return ACCOUNT_TYPES.find(([value]) => value === type)?.[1] ?? type;
 }
 
-function TransactionTable({ transactions, compact = false, onDelete }) {
+function TransactionTable({ transactions, compact = false, onEdit, onDelete }) {
   return (
     <div className="table-scroll"><table className="transaction-table">
-      <thead><tr><th>Descrição</th><th>Categoria</th><th>Conta</th><th>Data</th><th className="align-right">Valor</th>{onDelete && <th />}</tr></thead>
+      <thead><tr><th>Descrição</th><th>Categoria</th><th>Conta</th><th>Data</th><th className="align-right">Valor</th>{(onEdit || onDelete) && <th>Ações</th>}</tr></thead>
       <tbody>{transactions.map((item) => {
         const income = item.kind === "income";
         return <tr key={item.id}>
@@ -660,15 +691,18 @@ function TransactionTable({ transactions, compact = false, onDelete }) {
           <td className="muted-cell">{item.accounts?.name || "—"}</td>
           <td className="muted-cell">{dateLabel.format(new Date(`${item.occurred_on}T00:00:00`))}</td>
           <td className={`align-right transaction-amount ${income ? "amount-income" : ""}`}>{income ? "+" : "−"}{currency(item.amount)}</td>
-          {onDelete && <td><button className="icon-button delete-button" aria-label={`Excluir ${item.description}`} title="Excluir transação" onClick={() => onDelete(item.id)}><X size={15} /></button></td>}
+          {(onEdit || onDelete) && <td><div className="crud-actions">
+            {onEdit && <button className="icon-button" aria-label={`Editar ${item.description}`} title="Editar transação" onClick={() => onEdit(item)}><Pencil size={15} /></button>}
+            {onDelete && <button className="icon-button delete-button" aria-label={`Excluir ${item.description}`} title="Excluir transação" onClick={() => onDelete(item.id)}><Trash2 size={15} /></button>}
+          </div></td>}
         </tr>;
       })}</tbody>
-      {!transactions.length && <tfoot><tr><td colSpan={onDelete ? 6 : 5} className="empty-table-cell">Nenhuma transação encontrada com estes filtros.</td></tr></tfoot>}
+      {!transactions.length && <tfoot><tr><td colSpan={(onEdit || onDelete) ? 6 : 5} className="empty-table-cell">Nenhuma transação encontrada com estes filtros.</td></tr></tfoot>}
     </table></div>
   );
 }
 
-function TransactionsPage({ data, onAdd, onDelete, onExport }) {
+function TransactionsPage({ data, onAdd, onEdit, onDelete, onExport }) {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
   const [month, setMonth] = useState("");
@@ -685,19 +719,19 @@ function TransactionsPage({ data, onAdd, onDelete, onExport }) {
         <select aria-label="Filtrar por tipo" value={kind} onChange={(event) => setKind(event.target.value)}><option value="all">Todos os tipos</option><option value="income">Receitas</option><option value="expense">Despesas</option></select>
         <input aria-label="Filtrar por mês" type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
       </div>
-      <TransactionTable transactions={filtered} onDelete={onDelete} />
+      <TransactionTable transactions={filtered} onEdit={onEdit} onDelete={onDelete} />
       <div className="table-footer">{filtered.length} {filtered.length === 1 ? "transação" : "transações"} {filtered.length !== data.transactions.length && `de ${data.transactions.length}`}</div>
     </section>
   </>;
 }
 
-function AccountsPage({ data, onAdd, onNavigate }) {
+function AccountsPage({ data, onAdd, onEdit, onDelete, onNavigate }) {
   const total = data.accounts.reduce((sum, account) => sum + accountBalance(account, data.transactions), 0);
   return <>
     <div className="page-heading"><div><span className="eyebrow">CONTAS E CARTEIRAS</span><h1>Minhas contas</h1><p>Veja onde está seu dinheiro e acompanhe cada saldo.</p></div><button className="primary-button" onClick={onAdd}><Plus size={17} /> Adicionar conta</button></div>
     <div className="accounts-summary"><span className="account-summary-icon"><Wallet size={22} /></span><div><span>Saldo consolidado</span><strong>{currency(total)}</strong><small>Distribuído em {data.accounts.length} {data.accounts.length === 1 ? "conta" : "contas"}</small></div></div>
     {!data.accounts.length ? <section className="panel page-empty"><span className="empty-icon"><CreditCard size={23} /></span><h2>Nenhuma conta cadastrada</h2><p>Adicione sua conta bancária, poupança ou carteira para começar a controlar seus saldos.</p><button className="primary-button" onClick={onAdd}><Plus size={17} /> Criar primeira conta</button></section> : (
-      <div className="account-cards">{data.accounts.map((account) => <article className="account-card" key={account.id}><div className="account-card-top"><span className="account-symbol large" style={{ background: `${account.color}20`, color: account.color }}><Wallet size={20} /></span><span className="account-type-pill">{accountType(account.type)}</span></div><h2>{account.name}</h2><p>Saldo atual</p><strong className="account-card-balance">{currency(accountBalance(account, data.transactions))}</strong><div className="account-card-bottom"><span>Saldo inicial</span><strong>{currency(account.opening_balance)}</strong><button className="text-link" onClick={() => onNavigate("transactions")}>Ver movimentações <ArrowUpRight size={14} /></button></div></article>)}</div>
+      <div className="account-cards">{data.accounts.map((account) => <article className="account-card" key={account.id}><div className="account-card-top"><span className="account-symbol large" style={{ background: `${account.color}20`, color: account.color }}><Wallet size={20} /></span><div className="account-card-actions"><span className="account-type-pill">{accountType(account.type)}</span><button className="icon-button" aria-label={`Editar conta ${account.name}`} title="Editar conta" onClick={() => onEdit(account)}><Pencil size={15} /></button><button className="icon-button delete-button" aria-label={`Excluir conta ${account.name}`} title="Excluir conta" onClick={() => onDelete(account.id)}><Trash2 size={15} /></button></div></div><h2>{account.name}</h2><p>Saldo atual</p><strong className="account-card-balance">{currency(accountBalance(account, data.transactions))}</strong><div className="account-card-bottom"><span>Saldo inicial</span><strong>{currency(account.opening_balance)}</strong><button className="text-link" onClick={() => onNavigate("transactions")}>Ver movimentações <ArrowUpRight size={14} /></button></div></article>)}</div>
     )}
   </>;
 }
@@ -707,7 +741,7 @@ function budgetUsage(budget, transactions) {
   return Number(budget.amount) ? (spent / Number(budget.amount)) * 100 : 0;
 }
 
-function BudgetsPage({ data, onAdd }) {
+function BudgetsPage({ data, onAdd, onEdit, onDelete }) {
   const [period, setPeriod] = useState(dateInputValue().slice(0, 7));
   const [year, month] = period.split("-").map(Number);
   const monthBudgets = data.budgets.filter((budget) => budget.year === year && budget.month === month);
@@ -720,7 +754,7 @@ function BudgetsPage({ data, onAdd }) {
         const percentage = Math.min((spent / Number(budget.amount)) * 100, 100);
         const warning = percentage >= Number(budget.alert_threshold);
         return <article className={`budget-card ${warning ? "budget-warning" : ""}`} key={budget.id}>
-          <div className="budget-card-heading"><span className="budget-category-icon" style={{ background: `${budget.categories?.color || "#58a88d"}20`, color: budget.categories?.color || "#58a88d" }}>{budget.categories?.icon || "◉"}</span><span><strong>{budget.categories?.name || "Categoria"}</strong><small>Limite mensal</small></span><span className={`budget-status ${warning ? "warning" : ""}`}>{warning ? <><Bell size={13} /> Próximo do limite</> : "Dentro do limite"}</span></div>
+          <div className="budget-card-heading"><span className="budget-category-icon" style={{ background: `${budget.categories?.color || "#58a88d"}20`, color: budget.categories?.color || "#58a88d" }}>{budget.categories?.icon || "◉"}</span><span><strong>{budget.categories?.name || "Categoria"}</strong><small>Limite mensal</small></span><span className={`budget-status ${warning ? "warning" : ""}`}>{warning ? <><Bell size={13} /> Próximo do limite</> : "Dentro do limite"}</span><div className="crud-actions"><button className="icon-button" aria-label={`Editar orçamento de ${budget.categories?.name || "categoria"}`} title="Editar orçamento" onClick={() => onEdit(budget)}><Pencil size={15} /></button><button className="icon-button delete-button" aria-label={`Excluir orçamento de ${budget.categories?.name || "categoria"}`} title="Excluir orçamento" onClick={() => onDelete(budget.id)}><Trash2 size={15} /></button></div></div>
           <div className="budget-numbers"><span><strong>{currency(spent)}</strong> gastos</span><span>de <strong>{currency(budget.amount)}</strong></span></div>
           <div className="progress-track"><span style={{ width: `${percentage}%`, background: warning ? "#e4865a" : budget.categories?.color || "#58a88d" }} /></div>
           <div className="budget-card-footer"><span>{Math.round(spent / Number(budget.amount) * 100)}% utilizado</span><span>{currency(Math.max(Number(budget.amount) - spent, 0))} restantes</span></div>
@@ -731,12 +765,12 @@ function BudgetsPage({ data, onAdd }) {
   </>;
 }
 
-function CategoriesPage({ data, onAdd }) {
+function CategoriesPage({ data, onAdd, onEdit, onDelete }) {
   const grouped = { expense: data.categories.filter((category) => category.kind === "expense"), income: data.categories.filter((category) => category.kind === "income") };
   return <>
     <div className="page-heading"><div><span className="eyebrow">DO SEU JEITO</span><h1>Categorias</h1><p>Organize receitas e despesas com categorias personalizadas.</p></div><button className="primary-button" onClick={onAdd}><Plus size={17} /> Nova categoria</button></div>
     {!data.categories.length ? <section className="panel page-empty"><span className="empty-icon"><Tags size={23} /></span><h2>Suas categorias aparecem aqui</h2><p>As categorias padrão são criadas automaticamente quando você entra pela primeira vez.</p></section> : (
-      <div className="category-groups">{[["expense", "Despesas", TrendingDown], ["income", "Receitas", TrendingUp]].map(([kind, title, Icon]) => <section className="panel category-group" key={kind}><div className="panel-heading"><div><h2><Icon size={17} /> {title}</h2><p>{grouped[kind].length} {grouped[kind].length === 1 ? "categoria" : "categorias"}</p></div></div><div className="category-chips">{grouped[kind].map((category) => <div className="category-chip" key={category.id}><span style={{ background: `${category.color}20`, color: category.color }}>{category.icon}</span><strong>{category.name}</strong></div>)}</div></section>)}</div>
+      <div className="category-groups">{[["expense", "Despesas", TrendingDown], ["income", "Receitas", TrendingUp]].map(([kind, title, Icon]) => <section className="panel category-group" key={kind}><div className="panel-heading"><div><h2><Icon size={17} /> {title}</h2><p>{grouped[kind].length} {grouped[kind].length === 1 ? "categoria" : "categorias"}</p></div></div><div className="category-chips">{grouped[kind].map((category) => <div className="category-chip" key={category.id}><span className="category-chip-icon" style={{ background: `${category.color}20`, color: category.color }}>{category.icon}</span><strong>{category.name}</strong><div className="crud-actions"><button className="icon-button" aria-label={`Editar categoria ${category.name}`} title="Editar categoria" onClick={() => onEdit(category)}><Pencil size={14} /></button><button className="icon-button delete-button" aria-label={`Excluir categoria ${category.name}`} title="Excluir categoria" onClick={() => onDelete(category.id)}><Trash2 size={14} /></button></div></div>)}</div></section>)}</div>
     )}
   </>;
 }
@@ -757,23 +791,31 @@ function HelpPage() {
   </div></div>;
 }
 
-function FinanceModal({ type, data, userId, onClose, onSave }) {
+function FinanceModal({ type, record, data, userId, onClose, onSave }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [kind, setKind] = useState("expense");
-  const [categoryId, setCategoryId] = useState("");
-  const [accountId, setAccountId] = useState(data.accounts[0]?.id || "");
-  const [name, setName] = useState("");
-  const [color, setColor] = useState("#58a88d");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState(dateInputValue());
-  const [accountTypeValue, setAccountTypeValue] = useState("checking");
-  const [threshold, setThreshold] = useState("80");
   const now = new Date();
-  const [period, setPeriod] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  const [kind, setKind] = useState(record?.kind || "expense");
+  const [categoryId, setCategoryId] = useState(record?.category_id || "");
+  const [accountId, setAccountId] = useState(record?.account_id || data.accounts[0]?.id || "");
+  const [name, setName] = useState(record?.name || "");
+  const [color, setColor] = useState(record?.color || "#58a88d");
+  const [amount, setAmount] = useState(String(type === "account" ? record?.opening_balance ?? "" : record?.amount ?? ""));
+  const [description, setDescription] = useState(record?.description || "");
+  const [date, setDate] = useState(record?.occurred_on || dateInputValue());
+  const [accountTypeValue, setAccountTypeValue] = useState(record?.type || "checking");
+  const [threshold, setThreshold] = useState(String(record?.alert_threshold ?? 80));
+  const [period, setPeriod] = useState(record
+    ? `${record.year}-${String(record.month).padStart(2, "0")}`
+    : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
-  const title = { transaction: "Nova transação", account: "Adicionar conta", category: "Nova categoria", budget: "Criar orçamento" }[type];
+  const titles = {
+    transaction: record ? "Editar transação" : "Nova transação",
+    account: record ? "Editar conta" : "Adicionar conta",
+    category: record ? "Editar categoria" : "Nova categoria",
+    budget: record ? "Editar orçamento" : "Criar orçamento",
+  };
+  const title = titles[type];
   const categories = data.categories.filter((category) => category.kind === kind);
 
   async function submit(event) {
@@ -797,15 +839,15 @@ function FinanceModal({ type, data, userId, onClose, onSave }) {
           occurred_on: date,
         };
         table = "transactions";
-        success = "Transação adicionada.";
+        success = record ? "Transação atualizada." : "Transação adicionada.";
       } else if (type === "account") {
         payload = { user_id: userId, name: name.trim(), type: accountTypeValue, opening_balance: Number(amount || 0), color };
         table = "accounts";
-        success = "Conta adicionada.";
+        success = record ? "Conta atualizada." : "Conta adicionada.";
       } else if (type === "category") {
-        payload = { user_id: userId, name: name.trim(), kind, color };
+        payload = { user_id: userId, name: name.trim(), kind: record?.kind || kind, color };
         table = "categories";
-        success = "Categoria adicionada.";
+        success = record ? "Categoria atualizada." : "Categoria adicionada.";
       } else {
         const [year, month] = period.split("-").map(Number);
         if (!categoryId) throw new Error("Selecione uma categoria.");
@@ -813,7 +855,7 @@ function FinanceModal({ type, data, userId, onClose, onSave }) {
         table = "budgets";
         success = "Orçamento salvo.";
       }
-      await onSave(table, payload, success);
+      await onSave(table, payload, success, record?.id);
     } catch (saveError) {
       setError(formatError(saveError));
     } finally {
@@ -840,7 +882,7 @@ function FinanceModal({ type, data, userId, onClose, onSave }) {
           <label>Cor da conta<span className="color-input-wrap"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} /><span>Escolha uma cor para identificar esta conta.</span></span></label>
         </>}
         {type === "category" && <>
-          <div className="segmented-control"><button type="button" className={kind === "expense" ? "selected" : ""} onClick={() => setKind("expense")}>Despesa</button><button type="button" className={kind === "income" ? "selected income-selected" : ""} onClick={() => setKind("income")}>Receita</button></div>
+          {record ? <div className="category-kind-label">Tipo: <strong>{record.kind === "income" ? "Receita" : "Despesa"}</strong></div> : <div className="segmented-control"><button type="button" className={kind === "expense" ? "selected" : ""} onClick={() => setKind("expense")}>Despesa</button><button type="button" className={kind === "income" ? "selected income-selected" : ""} onClick={() => setKind("income")}>Receita</button></div>}
           <label>Nome da categoria<input autoFocus placeholder="Ex.: Educação" value={name} onChange={(event) => setName(event.target.value)} required maxLength={60} /></label>
           <label>Cor<span className="color-input-wrap"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} /><span>Escolha uma cor para identificar esta categoria.</span></span></label>
         </>}
@@ -851,7 +893,7 @@ function FinanceModal({ type, data, userId, onClose, onSave }) {
           <label>Alertar quando atingir (%)<input type="number" min="1" max="100" value={threshold} onChange={(event) => setThreshold(event.target.value)} required /><small className="field-hint">Você verá um aviso ao atingir este percentual do orçamento.</small></label>
         </>}
         {error && <div className="form-alert error-alert" role="alert">{error}</div>}
-        <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={busy || (type === "transaction" && !data.accounts.length)}>{busy && <LoaderCircle size={16} className="spin" />}{type === "budget" ? "Salvar orçamento" : type === "account" ? "Adicionar conta" : type === "category" ? "Criar categoria" : "Salvar transação"}</button></div>
+        <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={busy || (type === "transaction" && !data.accounts.length)}>{busy && <LoaderCircle size={16} className="spin" />}{record ? "Salvar alterações" : type === "budget" ? "Salvar orçamento" : type === "account" ? "Adicionar conta" : type === "category" ? "Criar categoria" : "Salvar transação"}</button></div>
       </form>
     </div>
   </div>;
