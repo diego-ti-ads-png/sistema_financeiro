@@ -136,6 +136,8 @@ a { color: inherit; text-decoration: none; }
 .transaction-amount.amount-income { color: #4a997a; }
 .delete-button { width: 26px; height: 26px; color: #a4ada8; }
 .delete-button:hover { color: #bc654b; background: #fff0eb; }
+.crud-actions { display: flex; align-items: center; gap: 2px; }
+.crud-actions .icon-button { width: 28px; height: 28px; }
 .table-footer { padding: 12px 18px 0; color: #9da7a1; font-size: 9px; }
 .accounts-panel { min-height: 210px; }
 .account-list { display: grid; gap: 3px; margin-top: 14px; }
@@ -179,6 +181,7 @@ a { color: inherit; text-decoration: none; }
 .account-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .account-card { padding: 17px; background: #fff; border: 1px solid var(--border); border-radius: 11px; }
 .account-card-top { display: flex; align-items: center; justify-content: space-between; }
+.account-card-actions { display: flex; align-items: center; gap: 3px; }
 .account-symbol.large { width: 38px; height: 38px; }
 .account-type-pill { padding: 5px 8px; color: #77837c; background: #f5f7f6; border-radius: 20px; font-size: 9px; }
 .account-card h2 { margin: 15px 0 4px; color: #48574e; font-size: 13px; }
@@ -215,6 +218,7 @@ a { color: inherit; text-decoration: none; }
 .category-chip { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 5px 12px 5px 6px; background: #fafbfa; border: 1px solid #eef1ef; border-radius: 24px; }
 .category-chip > span { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 50%; font-size: 13px; }
 .category-chip strong { color: #647168; font-size: 10px; font-weight: 600; }
+.category-chip .crud-actions { margin-left: 2px; }
 .help-grid { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 19px; }
 .help-card { position: relative; min-height: 140px; padding: 20px; }
 .help-number { color: #83aa95; font-family: Manrope, sans-serif; font-size: 11px; font-weight: 800; }
@@ -269,6 +273,8 @@ a { color: inherit; text-decoration: none; }
 .segmented-control button { height: 31px; color: #87928c; background: transparent; border: 0; border-radius: 6px; font-size: 10px; font-weight: 600; }
 .segmented-control button.selected { color: #a96446; background: #fff; box-shadow: 0 1px 5px #213c2e12; }
 .segmented-control button.income-selected { color: #34785d; }
+.category-kind-label { padding: 9px 10px; color: #849089; background: #f7f9f8; border-radius: 7px; font-size: 10px; }
+.category-kind-label strong { color: #53645a; }
 .form-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .color-input-wrap { display: flex; align-items: center; gap: 10px; color: #9aa49f; font-size: 9px; font-weight: 400; }
 .color-input-wrap input { width: 36px !important; height: 32px !important; padding: 3px !important; }
