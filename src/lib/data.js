@@ -50,6 +50,9 @@ export async function loadFinanceData() {
 }
 
 export async function ensureDefaultCategories(userId) {
+  const seedKey = `fluxo-default-categories-seeded:${userId}`;
+  if (localStorage.getItem(seedKey) === "true") return;
+
   const { data, error } = await supabase
     .from("categories")
     .select("id")
@@ -65,4 +68,5 @@ export async function ensureDefaultCategories(userId) {
       });
     if (insertError) throw insertError;
   }
+  localStorage.setItem(seedKey, "true");
 }
