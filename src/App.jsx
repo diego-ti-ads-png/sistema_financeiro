@@ -373,9 +373,6 @@ function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -429,56 +426,6 @@ function AuthScreen() {
     }
   }
 
-  async function signInProvider(provider) {
-    setError("");
-    setBusy(true);
-    try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin },
-      });
-      if (authError) throw authError;
-    } catch (authError) {
-      setError(formatError(authError));
-      setBusy(false);
-    }
-  }
-
-  async function sendPhoneCode(event) {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
-      setError("Use o formato internacional, por exemplo: +5511999999999.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error: authError } = await supabase.auth.signInWithOtp({ phone });
-      if (authError) throw authError;
-      setOtpSent(true);
-      setMessage("Código enviado por SMS. Verifique também o filtro de mensagens.");
-    } catch (authError) {
-      setError(formatError(authError));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyPhoneCode(event) {
-    event.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      const { error: authError } = await supabase.auth.verifyOtp({ phone, token: otp, type: "sms" });
-      if (authError) throw authError;
-    } catch (authError) {
-      setError(formatError(authError));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const title = mode === "register" ? "Crie sua conta" : mode === "forgot" ? "Recupere o acesso" : "Bem-vindo de volta";
   return (
     <div className="auth-page">
@@ -515,31 +462,6 @@ function AuthScreen() {
             <button className="primary-button auth-submit" type="submit" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin" /> : null}{mode === "register" ? "Criar conta" : mode === "forgot" ? "Enviar link de redefinição" : "Entrar"}</button>
           </form>
 
-          {mode !== "forgot" && (
-            <>
-              <div className="auth-divider"><span />ou continue com<span /></div>
-              <div className="oauth-grid">
-                <button className="oauth-button" onClick={() => signInProvider("google")} disabled={busy}><GoogleMark />Google</button>
-                <button className="oauth-button" onClick={() => signInProvider("github")} disabled={busy}><GitHubMark />GitHub</button>
-                <button className="oauth-button oauth-wide" onClick={() => signInProvider("linkedin_oidc")} disabled={busy}><LinkedInMark />LinkedIn</button>
-              </div>
-              <div className="phone-auth">
-                <div className="phone-heading"><span />ou use seu telefone<span /></div>
-                {!otpSent ? (
-                  <form className="phone-form" onSubmit={sendPhoneCode}>
-                    <input type="tel" placeholder="+55 11 99999-9999" aria-label="Telefone com código do país" value={phone} onChange={(event) => setPhone(event.target.value)} />
-                    <button className="secondary-button" disabled={busy}>Enviar código</button>
-                  </form>
-                ) : (
-                  <form className="phone-form" onSubmit={verifyPhoneCode}>
-                    <input inputMode="numeric" autoComplete="one-time-code" placeholder="Código SMS" aria-label="Código de confirmação SMS" value={otp} onChange={(event) => setOtp(event.target.value)} required />
-                    <button className="secondary-button" disabled={busy}>Confirmar</button>
-                  </form>
-                )}
-              </div>
-            </>
-          )}
-
           <div className="auth-switch">
             {mode === "forgot" ? (
               <button className="text-link" onClick={() => changeMode("login")}>Voltar para o login</button>
@@ -554,18 +476,6 @@ function AuthScreen() {
       </div>
     </div>
   );
-}
-
-function GoogleMark() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.85 0-5.27-1.92-6.13-4.5H2.18v2.84A11 11 0 0 0 12 23Z" /><path fill="#FBBC05" d="M5.87 14.14A6.6 6.6 0 0 1 5.52 12c0-.74.13-1.45.35-2.14V7.02H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.98l3.69-2.84Z" /><path fill="#EA4335" d="M12 5.36c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.01 14.97 1 12 1a11 11 0 0 0-9.82 6.02l3.69 2.84c.86-2.58 3.28-4.5 6.13-4.5Z" /></svg>;
-}
-
-function GitHubMark() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.23-1.62-1.23-1.62-1.01-.7.08-.69.08-.69 1.12.08 1.7 1.15 1.7 1.15.99 1.7 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.47-.28-5.07-1.24-5.07-5.49 0-1.21.43-2.2 1.15-2.98-.12-.28-.5-1.41.11-2.94 0 0 .94-.3 3.05 1.14a10.6 10.6 0 0 1 5.55 0c2.11-1.44 3.04-1.14 3.04-1.14.61 1.53.23 2.66.11 2.94.72.78 1.15 1.77 1.15 2.98 0 4.26-2.6 5.2-5.08 5.48.4.35.75 1.02.75 2.06v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z" /></svg>;
-}
-
-function LinkedInMark() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0A66C2" d="M20.45 2H3.55C2.69 2 2 2.68 2 3.52v16.96c0 .84.69 1.52 1.55 1.52h16.9c.86 0 1.55-.68 1.55-1.52V3.52c0-.84-.69-1.52-1.55-1.52ZM7.93 18.34H4.96V9.01h2.97v9.33ZM6.45 7.73a1.72 1.72 0 1 1 0-3.44 1.72 1.72 0 0 1 0 3.44Zm11.89 10.61h-2.97V13.8c0-1.08-.02-2.47-1.51-2.47-1.52 0-1.75 1.18-1.75 2.39v4.62H9.14V9.01h2.85v1.27h.04c.4-.73 1.37-1.5 2.82-1.5 3.01 0 3.57 1.98 3.57 4.55v5.01Z" /></svg>;
 }
 
 function Dashboard({ data, onNavigate, onAdd, onExport }) {
