@@ -5,8 +5,6 @@ Aplicação web responsiva para organizar contas, receitas, despesas e orçament
 ## Funcionalidades
 
 - Cadastro, login e recuperação de senha por e-mail.
-- Login e cadastro OAuth por Google, GitHub e LinkedIn (OIDC).
-- Acesso por telefone com código SMS.
 - Rotas internas protegidas por sessão Supabase.
 - Contas bancárias, poupanças, carteiras e cartões com saldo inicial e saldo calculado.
 - Receitas e despesas com categorias, conta e data.
@@ -62,17 +60,7 @@ Em **Authentication → URL Configuration**:
 - Inclua em **Redirect URLs** `http://localhost:5173/**` e, após publicar, `https://SEU-DOMINIO-VERCEL.vercel.app/**` (além do domínio próprio, se houver).
 - O fluxo de recuperação usa a origem do site para retornar ao formulário de nova senha; essa origem também precisa estar permitida.
 
-Para OAuth, abra **Authentication → Providers**, habilite Google, GitHub e LinkedIn OIDC e configure os Client ID/Client Secret fornecidos por cada provedor. Nos cadastros OAuth dos provedores, use como callback a URL de callback exibida pelo painel do Supabase, geralmente:
-
-```text
-https://SEU-PROJETO.supabase.co/auth/v1/callback
-```
-
-Não use a URL de callback do provedor como Redirect URL do frontend: o provedor retorna primeiro ao Supabase e o Supabase redireciona à aplicação.
-
-Para telefone, habilite **Phone** em **Authentication → Providers** e configure um provedor SMS em **Project Settings → Auth → SMS Provider**. A aplicação envia o telefone em formato internacional, por exemplo `+5511999999999`; tarifas e limites dependem do provedor escolhido. O mesmo fluxo de código atende login e cadastro.
-
-Se a confirmação de e-mail estiver habilitada, o usuário deverá abrir o link enviado antes de entrar. Configure os modelos de e-mail do Supabase para direcionarem à URL do app. As credenciais OAuth e de SMS ficam no painel Supabase, não no código.
+O acesso da aplicação usa e-mail e senha, com confirmação de e-mail opcional. Se a confirmação estiver habilitada, o usuário deverá abrir o link enviado antes de entrar. Configure os modelos de e-mail do Supabase para direcionarem à URL do app.
 
 ## Banco de dados e segurança
 
@@ -139,7 +127,7 @@ Todas as tabelas têm `user_id` vinculado a `auth.users`, RLS habilitado e polí
    ```
 
    A última entrada é opcional e permite URLs de Preview da Vercel. Prefira restringir o padrão ao seu escopo; não habilite curingas amplos em produção.
-4. Em cada provedor OAuth, mantenha como callback a URL `https://SEU-PROJETO.supabase.co/auth/v1/callback` mostrada pelo Supabase. Os fluxos de OAuth e recuperação de senha retornam então ao domínio configurado e permitido.
+4. Os links de confirmação e recuperação de senha retornam ao domínio configurado e permitido.
 
 ## Scripts
 
